@@ -20,74 +20,76 @@ public class WarehouseRepository : IWarehouseRepository
         con.Open();
         var transaction = con.BeginTransaction();
 
-        var productPrice = FetchProductPrice(con, warehouseProduct.IdProduct);
+        var productPrice = FetchProductPrice(transaction, warehouseProduct.IdProduct);
         if (productPrice == null)
         {
             throw new NotExistingProductException(warehouseProduct.IdProduct);
         }
 
-        if (!WarehouseExists(con, warehouseProduct.IdWarehouse))
+        if (!WarehouseExists(transaction, warehouseProduct.IdWarehouse))
         {
             throw new NotExistingWarehouseException(warehouseProduct.IdWarehouse);
         }
 
-        var matchingOrderId = FindMatchingOrder(con, warehouseProduct.IdProduct, warehouseProduct.Amount,
+        var matchingOrderId = FindMatchingOrder(transaction, warehouseProduct.IdProduct, warehouseProduct.Amount,
             warehouseProduct.CreatedAt);
         if (matchingOrderId == null)
         {
             throw new NotExistingMatchingOrderException();
         }
 
-        if (OrderFullfiled(con, matchingOrderId.Value))
+        if (OrderFullfiled(transaction, matchingOrderId.Value))
         {
             throw new OrderAlreadyFullfilledException(matchingOrderId.Value);
         }
 
-        SetOrderFullfiledDate(con, matchingOrderId.Value, DateTime.Now);
+        SetOrderFullfiledDate(transaction, matchingOrderId.Value, DateTime.Now);
 
 
-        var id =  InsertWarehouseProduct(con, matchingOrderId.Value, productPrice.Value, warehouseProduct);
+        var id =  InsertWarehouseProduct(transaction, matchingOrderId.Value, productPrice.Value, warehouseProduct);
         transaction.Commit();
         return id;
     }
 
-    private double? FetchProductPrice(SqlConnection con, int productId)
+    private decimal? FetchProductPrice(SqlTransaction transaction, int productId)
     {
         using var cmd = new SqlCommand();
-        cmd.Connection = con;
+        cmd.Connection = transaction.Connection;
+        cmd.Transaction = transaction;
         cmd.CommandText = "SELECT Price FROM Product WHERE IdProduct = @IdProduct";
         cmd.Parameters.AddWithValue("@IdProduct", productId);
 
-        var dr = cmd.ExecuteReader();
+        using var dr = cmd.ExecuteReader();
         if (dr.Read())
         {
-            return dr.GetDouble(0);
+            return dr.GetDecimal(0);
         }
         return null;
     }
 
-    private bool WarehouseExists(SqlConnection con, int warehouseId)
+    private bool WarehouseExists(SqlTransaction transaction, int warehouseId)
     {
         using var cmd = new SqlCommand();
-        cmd.Connection = con;
-        cmd.CommandText = "SELECT 1 FROM Warehouse WHERE IdProduct = @IdWarehouse";
+        cmd.Connection = transaction.Connection;
+        cmd.Transaction = transaction;
+        cmd.CommandText = "SELECT 1 FROM Warehouse WHERE IdWarehouse = @IdWarehouse";
         cmd.Parameters.AddWithValue("@IdWarehouse", warehouseId);
-
-        var dr = cmd.ExecuteReader();
+        using var dr = cmd.ExecuteReader();
         return dr.Read();
     }
 
-    private int? FindMatchingOrder(SqlConnection con, int idProduct, int amount, DateTime requestDateTime)
+    private int? FindMatchingOrder(SqlTransaction transaction, int idProduct, int amount, DateTime requestDateTime)
     {
         using var cmd = new SqlCommand();
-        cmd.Connection = con;
+        cmd.Connection = transaction.Connection;
+        cmd.Transaction = transaction;
         cmd.CommandText =
-            "SELECT IdOrder FROM Order WHERE IdProduct = @IdProduct AND Amount = @Amount AND CreatedAt < @RequestDateTime";
+            "SELECT IdOrder FROM Orders WHERE IdProduct = @IdProduct AND Amount = @Amount AND CreatedAt < @RequestDateTime";
         cmd.Parameters.AddWithValue("@IdProduct", idProduct);
         cmd.Parameters.AddWithValue("@Amount", amount);
         cmd.Parameters.AddWithValue("@RequestDateTime", requestDateTime);
 
-        var dr = cmd.ExecuteReader();
+        using var dr = cmd.ExecuteReader();
         if (dr.Read())
         {
             return dr.GetInt32(0);
@@ -97,32 +99,35 @@ public class WarehouseRepository : IWarehouseRepository
     }
 
 
-    private bool OrderFullfiled(SqlConnection con, int idOrder)
+    private bool OrderFullfiled(SqlTransaction transaction, int idOrder)
     {
         using var cmd = new SqlCommand();
-        cmd.Connection = con;
+        cmd.Connection = transaction.Connection;
+        cmd.Transaction = transaction;
         cmd.CommandText = "SELECT 1 FROM Product_Warehouse WHERE IdOrder = @IdOrder";
         cmd.Parameters.AddWithValue("@IdOrder", idOrder);
-        var dr = cmd.ExecuteReader();
+        using var dr = cmd.ExecuteReader();
         return dr.Read();
     }
 
-    private void SetOrderFullfiledDate(SqlConnection con, int idOrder, DateTime dateTime)
+    private void SetOrderFullfiledDate(SqlTransaction transaction, int idOrder, DateTime dateTime)
     {
         using var cmd = new SqlCommand();
-        cmd.Connection = con;
-        cmd.CommandText = "UPDATE Order SET FulfilledAt=@FulfilledDate WHERE IdOrder = @IdOrder";
+        cmd.Connection = transaction.Connection;
+        cmd.Transaction = transaction;
+        cmd.CommandText = "UPDATE Orders SET FulfilledAt=@FulfilledDate WHERE IdOrder = @IdOrder";
         cmd.Parameters.AddWithValue("@IdOrder", idOrder);
         cmd.Parameters.AddWithValue("@FulfilledDate", dateTime);
 
         cmd.ExecuteNonQuery();
     }
 
-    private int InsertWarehouseProduct(SqlConnection con, int idOrder, double productPrice,
+    private int InsertWarehouseProduct(SqlTransaction transaction, int idOrder, decimal productPrice,
         WarehouseProduct warehouseProduct)
     {
         using var cmd = new SqlCommand();
-        cmd.Connection = con;
+        cmd.Connection = transaction.Connection;
+        cmd.Transaction = transaction;
         cmd.CommandText =
             "INSERT INTO Product_Warehouse(IdWarehouse, IdProduct, IdOrder, Amount, Price, CreatedAt) VALUES(@IdWarehouse, @IdProduct, @IdOrder, @Amount, @Price, @CreatedAt)";
         cmd.Parameters.AddWithValue("@IdWarehouse", warehouseProduct.IdWarehouse);

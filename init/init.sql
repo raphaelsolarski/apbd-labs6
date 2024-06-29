@@ -4,7 +4,7 @@ GO
 
 USE Warehouse;
 
-CREATE TABLE "Order" (
+CREATE TABLE Orders (
                          IdOrder int  NOT NULL IDENTITY,
                          IdProduct int  NOT NULL,
                          Amount int  NOT NULL,
@@ -46,10 +46,10 @@ CREATE TABLE Warehouse (
 -- Reference: Product_Warehouse_Order (table: Product_Warehouse)
 ALTER TABLE Product_Warehouse ADD CONSTRAINT Product_Warehouse_Order
     FOREIGN KEY (IdOrder)
-        REFERENCES "Order" (IdOrder);
+        REFERENCES Orders (IdOrder);
 
 -- Reference: Receipt_Product (table: Order)
-ALTER TABLE "Order" ADD CONSTRAINT Receipt_Product
+ALTER TABLE Orders ADD CONSTRAINT Receipt_Product
     FOREIGN KEY (IdProduct)
         REFERENCES Product (IdProduct);
 
@@ -79,5 +79,5 @@ VALUES ('Abacavir', '', 25.5),
 
 GO
 
-INSERT INTO "Order"(IdProduct, Amount, CreatedAt)
+INSERT INTO Orders(IdProduct, Amount, CreatedAt)
 VALUES((SELECT IdProduct FROM Product WHERE Name='Abacavir'), 125, GETDATE());
