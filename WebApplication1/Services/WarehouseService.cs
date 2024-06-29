@@ -21,4 +21,4 @@ public class NotExistingWarehouseException(int id) : Exception($"Warehouse with 
 
 public class NotExistingMatchingOrderException() : Exception("There is no matching order for given request");
 
-public class OrderAlreadyFullfilledException(int orderId) : Exception($"Order with id {orderId} is already fullfilled");
+public class OrderAlreadyFulfilledException(int orderId) : Exception($"Order with id {orderId} is already fullfilled");

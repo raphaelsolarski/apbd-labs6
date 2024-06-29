@@ -1,5 +1,4 @@
 using Microsoft.Data.SqlClient;
-using Microsoft.OpenApi.Extensions;
 using WebApplication1.Models;
 using WebApplication1.Services;
 
@@ -40,13 +39,13 @@ public class WarehouseRepository : IWarehouseRepository
 
         if (OrderFullfiled(transaction, matchingOrderId.Value))
         {
-            throw new OrderAlreadyFullfilledException(matchingOrderId.Value);
+            throw new OrderAlreadyFulfilledException(matchingOrderId.Value);
         }
 
         SetOrderFullfiledDate(transaction, matchingOrderId.Value, DateTime.Now);
 
 
-        var id =  InsertWarehouseProduct(transaction, matchingOrderId.Value, productPrice.Value, warehouseProduct);
+        var id = InsertWarehouseProduct(transaction, matchingOrderId.Value, productPrice.Value, warehouseProduct);
         transaction.Commit();
         return id;
     }
@@ -64,6 +63,7 @@ public class WarehouseRepository : IWarehouseRepository
         {
             return dr.GetDecimal(0);
         }
+
         return null;
     }
 
@@ -129,7 +129,7 @@ public class WarehouseRepository : IWarehouseRepository
         cmd.Connection = transaction.Connection;
         cmd.Transaction = transaction;
         cmd.CommandText =
-            "INSERT INTO Product_Warehouse(IdWarehouse, IdProduct, IdOrder, Amount, Price, CreatedAt) VALUES(@IdWarehouse, @IdProduct, @IdOrder, @Amount, @Price, @CreatedAt)";
+            "INSERT INTO Product_Warehouse(IdWarehouse, IdProduct, IdOrder, Amount, Price, CreatedAt) OUTPUT INSERTED.IdProductWarehouse VALUES (@IdWarehouse, @IdProduct, @IdOrder, @Amount, @Price, @CreatedAt)";
         cmd.Parameters.AddWithValue("@IdWarehouse", warehouseProduct.IdWarehouse);
         cmd.Parameters.AddWithValue("@IdProduct", warehouseProduct.IdProduct);
         cmd.Parameters.AddWithValue("@IdOrder", idOrder);
@@ -137,6 +137,6 @@ public class WarehouseRepository : IWarehouseRepository
         cmd.Parameters.AddWithValue("@Price", productPrice * warehouseProduct.Amount);
         cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
 
-        return (int)cmd.ExecuteScalar();
+        return Convert.ToInt32(cmd.ExecuteScalar());
     }
 }
